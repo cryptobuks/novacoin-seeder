@@ -13,6 +13,8 @@
 
 using namespace std;
 
+bool NoLog = false;
+
 class CDnsSeedOpts {
 public:
   int nThreads;
@@ -26,9 +28,10 @@ public:
   const char *host;
   const char *tor;
   const char *magic;
+  int fNoStatsLog;
   vector<string> vSeeds;
   
-  CDnsSeedOpts() : nThreads(24), nDnsThreads(24), nPort(53), fWipeBan(0), fWipeIgnore(0), mbox(NULL), ns(NULL), host(NULL), tor(NULL), magic(NULL), vSeeds()
+  CDnsSeedOpts() : nThreads(24), nDnsThreads(24), nPort(53), fWipeBan(0), fWipeIgnore(0), mbox(NULL), ns(NULL), host(NULL), tor(NULL), magic(NULL), fNoStatsLog(0), vSeeds()
     { nP2Port = GetDefaultPort(); }
   
   void ParseCommandLine(int argc, char **argv) {
@@ -48,6 +51,7 @@ public:
                               "--magic <hex>   Magic string/network prefix\n"
                               "--wipeban       Wipe list of banned nodes\n"
                               "--wipeignore    Wipe list of ignored nodes\n"
+                              "--nostatslog    Do not write dnsstats.log file (default write)\n"
                               "-?, --help      Show this text\n"
                               "\n";
     bool showHelp = false;
@@ -66,6 +70,7 @@ public:
         {"magic", required_argument, 0, 'k'},
         {"wipeban", no_argument, &fWipeBan, 1},
         {"wipeignore", no_argument, &fWipeBan, 1},
+        {"nostatslog", no_argument, &fNoStatsLog, 1},
         {"help", no_argument, 0, 'h'},
         {0, 0, 0, 0}
       };
@@ -330,9 +335,12 @@ extern "C" void* ThreadDumper(void*) {
         stat[4] += rep.uptime[4];
       }
       fclose(d);
+      if (NoLog == false)
+      {
       FILE *ff = fopen("dnsstats.log", "a");
       fprintf(ff, "%llu %g %g %g %g %g\n", (unsigned long long)(time(NULL)), stat[0], stat[1], stat[2], stat[3], stat[4]);
       fclose(ff);
+      }
     }
   } while(1);
 }
@@ -429,6 +437,7 @@ int main(int argc, char **argv) {
         db.ResetIgnores();
     printf("done\n");
   }
+  if (opts.fNoStatsLog) NoLog = true;
   pthread_t threadDns, threadSeed, threadDump, threadStats;
   printf("Starting seeder...");
   pthread_create(&threadSeed, NULL, ThreadSeeder, NULL);
